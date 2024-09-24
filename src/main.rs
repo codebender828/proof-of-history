@@ -52,4 +52,12 @@ fn main() {
     );
 
     ledger.log_ledger();
+
+    let verification_result =
+        ledger.verify_proof_of_history_between_slots(0, ledger.get_slots_height() - 1);
+
+    println!(
+        "PoH verification between slots 0 and 1: {}",
+        verification_result
+    );
 }

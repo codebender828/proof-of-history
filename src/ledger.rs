@@ -1,5 +1,4 @@
 use serde::{Deserialize, Serialize};
-use std::time::{SystemTime, UNIX_EPOCH};
 
 use crate::poh::ProofOfHistory;
 
@@ -87,6 +86,40 @@ impl Ledger {
         slot
     }
 
+    /// Gets the ledger's block height
+    pub fn get_slots_height(&self) -> usize {
+        self.slots.len()
+    }
+
+    pub fn verify_proof_of_history_between_slots(
+        &self,
+        start_slot_index: usize,
+        end_slot_index: usize,
+    ) -> bool {
+        if start_slot_index >= end_slot_index || end_slot_index >= self.get_slots_height() {
+            return false;
+        }
+
+        let start_slot = &self.slots[start_slot_index];
+        let end_slot = &self.slots[end_slot_index];
+
+        let mut events = Vec::with_capacity(self.get_slots_height() - 1);
+        for slot in &self.slots[start_slot_index + 1..end_slot_index] {
+            let serialized_transactions = bincode::serialize(&slot.transactions).unwrap();
+            events.push(serialized_transactions);
+        }
+
+        let event_sequence = &events.iter().map(|e| e.as_slice()).collect::<Vec<&[u8]>>();
+
+        self.poh.verify_sequence(
+            start_slot.end_poh_hash,
+            start_slot.end_poh_count,
+            end_slot.slot_hash,
+            end_slot.end_poh_count,
+            event_sequence,
+        )
+    }
+
     // Logger utility to print out the entire ledger.
     pub fn log_ledger(&self) {
         println!("==================== BLOCKCHAIN LEDGER ====================");
@@ -112,6 +145,6 @@ impl Ledger {
             }
             println!("----------------------------------------------------------");
         }
-        println!("==================== END OF LEDGER ====================");
+        println!("==================== END OF LEDGER ==================== \n\n");
     }
 }
