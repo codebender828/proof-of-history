@@ -1,50 +1,52 @@
-use blake3::Hasher;
-use std::time::{Duration, Instant};
+use std::{
+    io::Read,
+    str::FromStr,
+    time::{Duration, Instant},
+};
 
-struct ProofOfHistory {
-    hasher: Hasher,
-    count: u64,
-}
+use blake3::Hash;
+use runtime::{Blockchain, Transaction};
 
-impl ProofOfHistory {
-    fn new() -> Self {
-        ProofOfHistory {
-            hasher: Hasher::new(),
-            count: 0,
-        }
-    }
-
-    fn tick(&mut self) {
-        self.hasher.update(&self.count.to_be_bytes());
-        self.count += 1
-    }
-
-    fn record_event(&mut self, event: &str) -> ([u8; 32], u64) {
-        self.hasher.update(&self.count.to_be_bytes());
-        self.hasher.update(event.as_bytes());
-        let hash = self.hasher.finalize();
-        self.count += 1;
-        (*hash.as_bytes(), self.count - 1)
-    }
-
-    fn get_hash(&self) -> [u8; 32] {
-        *self.hasher.finalize().as_bytes()
-    }
-}
+mod account;
+mod poh;
+mod runtime;
+mod state;
+mod validator;
 
 fn main() {
-    let mut poh = ProofOfHistory::new();
-    let start = Instant::now();
-    let duration = Duration::from_secs(5);
+    let mut blockchain = Blockchain::new();
 
-    while start.elapsed() < duration {
-        poh.tick();
+    // simulate some transactions
+    blockchain.add_transaction(Transaction {
+        from: "Alice".to_string(),
+        to: "Bob".to_string(),
+        amount: 50,                 // 50 SOL
+        recent_block_hash: [0; 32], //  this will be overwritten in `add_tranaction`
+    });
+
+    let slot = blockchain.create_slot();
+    println!(
+        "New slot created: count: {:?}, hash: {:?}",
+        slot.slot_number,
+        Hash::try_from(slot.slot_hash).unwrap().to_hex()
+    );
+
+    // Simulate passage of time and more transactions
+    for _ in 0..1000 {
+        blockchain.poh.tick();
     }
 
-    println!("Generated {} ticks in 5 seconds", poh.count);
+    blockchain.add_transaction(Transaction {
+        from: "Bob".to_string(),
+        to: "Charlie".to_string(),
+        amount: 10,                 // 10 SOL
+        recent_block_hash: [0; 32], // this will be overwritten in `add_transaction`
+    });
 
-    let (hash, count) = poh.record_event("Transaction X");
-    println!("Recorded event at tick {}", count);
-    println!("Event hash: {:?}", hash);
-    println!("Current PoH hash: {:?}", poh.get_hash());
+    let slot = blockchain.create_slot();
+    println!(
+        "Another slot created: count: {:?}, hash: {:?}",
+        slot.slot_number,
+        Hash::try_from(slot.slot_hash).unwrap().to_hex()
+    );
 }
