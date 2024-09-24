@@ -1,5 +1,5 @@
 [package]
-name = "proof-history"
+name = "lite-proof-of-history"
 version = "0.1.0"
 edition = "2021"
 
