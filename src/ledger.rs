@@ -7,6 +7,11 @@ pub type SlotNumber = u64;
 pub type SlotHash = [u8; 32];
 pub type BlockHash = SlotHash;
 
+// Helper function to convert [u8; 32] to a hex string
+pub fn hash_to_hex(hash: &[u8; 32]) -> String {
+    hash.iter().map(|b| format!("{:02x}", b)).collect()
+}
+
 /// Minimal Transaction object
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct Transaction {
@@ -28,14 +33,14 @@ pub struct Slot {
 }
 
 /// Ideally this should be our blockchain.
-pub struct Blockchain {
+pub struct Ledger {
     slots: Vec<Slot>,
     current_transactions: Vec<Transaction>,
     pub poh: ProofOfHistory,
     current_slot_number: u64,
 }
 
-impl Blockchain {
+impl Ledger {
     pub fn new() -> Self {
         let mut poh = ProofOfHistory::new();
         let (genesis_hash, _) = poh.tick();
@@ -48,7 +53,7 @@ impl Blockchain {
             end_poh_count: 0,
         };
 
-        Blockchain {
+        Ledger {
             slots: vec![genesis_slot],
             current_transactions: Vec::new(),
             poh,
@@ -80,5 +85,33 @@ impl Blockchain {
         self.slots.push(slot.clone());
         self.current_slot_number += 1;
         slot
+    }
+
+    // Logger utility to print out the entire ledger.
+    pub fn log_ledger(&self) {
+        println!("==================== BLOCKCHAIN LEDGER ====================");
+        for (index, slot) in self.slots.iter().enumerate() {
+            println!("Slot #{} (Slot Number: {})", index, slot.slot_number);
+            println!("  Slot Hash: {:?}", hash_to_hex(&slot.slot_hash));
+            println!("  End PoH Hash: {:?}", hash_to_hex(&slot.end_poh_hash));
+            println!("  End PoH Count: {}", slot.end_poh_count);
+            println!("  Transactions:");
+            if slot.transactions.is_empty() {
+                println!("    No transactions in this slot");
+            } else {
+                for (tx_index, tx) in slot.transactions.iter().enumerate() {
+                    println!("    Transaction #{}:", tx_index);
+                    println!("      From: {}", tx.from);
+                    println!("      To: {}", tx.to);
+                    println!("      Amount: {}", tx.amount);
+                    println!(
+                        "      Recent Slot Hash: {:?}",
+                        hash_to_hex(&tx.recent_block_hash)
+                    );
+                }
+            }
+            println!("----------------------------------------------------------");
+        }
+        println!("==================== END OF LEDGER ====================");
     }
 }
